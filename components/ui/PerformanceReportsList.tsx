@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Select } from './ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
+import { Badge } from './badge';
+import { Button } from './button';
+import { Input } from './input';
+import { Select } from './select';
 import { 
   FileText, 
   Filter, 
