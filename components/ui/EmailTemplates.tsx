@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
+import { Button } from './button';
+import { Badge } from './badge';
+import { Avatar, AvatarFallback, AvatarImage } from './avatar';
 import { 
   Select, 
   SelectContent, 
@@ -10,10 +10,9 @@ import {
   SelectTrigger, 
   SelectValue 
 } from './ui/select';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Input } from './input';
+import { Label } from './label';
+import { Textarea } from './textarea';
 import { 
   Dialog, 
   DialogContent, 
