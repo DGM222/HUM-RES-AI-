@@ -13,7 +13,6 @@ import {
 import { Input } from './input';
 import { Label } from './label';
 import { Textarea } from './textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 import { 
   Dialog, 
   DialogContent, 
