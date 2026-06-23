@@ -1,7 +1,7 @@
 node_modules
 dist
 .git
-.dockerignore
+.vscode
+.env
 Dockerfile
 docker-compose.yml
-README.md

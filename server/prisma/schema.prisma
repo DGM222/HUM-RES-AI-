@@ -1,16 +1,44 @@
-datasource db {
-  provider = "sqlite"
-}
-
 generator client {
   provider = "prisma-client-js"
 }
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums for Data Integrity ---
+enum Role {
+  ADMIN
+  HR
+  EMPLOYEE
+}
+
+enum Status {
+  ACTIVE
+  UNDER_REVIEW
+  ON_LEAVE
+}
+
+enum Urgency {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TaskType {
+  REVIEW
+  PERFORMANCE
+  APPROVAL
+}
+
+// --- Models ---
 
 model User {
   id         Int       @id @default(autoincrement())
   email      String    @unique
   password   String
-  role       String    // "Admin", "HR", "Employee"
+  role       Role      @default(EMPLOYEE)
   employeeId Int?      @unique
   employee   Employee? @relation(fields: [employeeId], references: [id])
 }
@@ -19,38 +47,47 @@ model Employee {
   id               Int        @id @default(autoincrement())
   name             String
   email            String     @unique
-  role             String
+  role             Role
   department       String
   performanceScore Float
-  status           String     // "Active", "Under Review", "On Leave"
-  joinDate         String
+  status           Status     @default(ACTIVE)
+  joinDate         DateTime
   avatar           String
   location         String
+  
+  // Self-relation for hierarchy
   managerId        Int?
   manager          Employee?  @relation("ManagerSubordinates", fields: [managerId], references: [id])
   subordinates     Employee[] @relation("ManagerSubordinates")
+  
+  // Relation to User
   user             User?
+  
+  // Relation to Tasks
+  tasks            Task[]
 }
 
 model Task {
   id          Int      @id @default(autoincrement())
   title       String
-  assignedTo  String   // Employee Name
-  status      String   // "Pending", "Completed"
-  dueDate     String
-  urgency     String   // "high", "medium", "low"
-  type        String   // "review", "performance", "approval"
-  daysOverdue Int?
+  status      String   @default("Pending")
+  dueDate     DateTime
+  urgency     Urgency
+  type        TaskType
   score       Float?
   department  String?
+  
+  // Relation to Employee
+  employeeId  Int
+  assignedTo  Employee @relation(fields: [employeeId], references: [id])
 }
 
 model InboxMessage {
   id         Int      @id @default(autoincrement())
   sender     String
-  senderRole String
+  senderRole Role
   content    String
-  time       String
+  time       DateTime @default(now())
   unread     Boolean  @default(true)
   avatar     String
 }
@@ -58,9 +95,7 @@ model InboxMessage {
 model CalendarEvent {
   id        Int      @id @default(autoincrement())
   title     String
-  type      String   // "Review", "Meeting", "Holiday"
-  date      String
-  time      String
+  type      String
+  eventDate DateTime
   attendee  String?
-  daysUntil Int?
 }
