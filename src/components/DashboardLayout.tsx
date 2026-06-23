@@ -126,7 +126,7 @@ export function DashboardLayout() {
 
   return (
     <SidebarProvider>
-      <AppSidebar onNavigate={setCurrentView} /> {/* FIXED */}
+     <AppSidebar onNavigate={(view) => setCurrentView(view as any)} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />

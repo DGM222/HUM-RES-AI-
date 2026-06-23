@@ -1,47 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
-import { AlertTriangle, Users, TrendingUp, FileText, CheckCircle, UserCheck, Clock, MessageCircle, Calendar, UserX, Star, AlertCircle, ChevronRight, Settings } from 'lucide-react';
-
-// Mock data
-const dashboardData = {
-  totalEmployees: 247,
-  averagePerformance: 8.2,
-  departmentBreakdown: {
-    engineering: 89,
-    marketing: 34,
-    sales: 67,
-    hr: 23,
-    finance: 34
-  },
-  actionAlerts: [
-    { id: 1, name: 'Sarah Johnson', type: 'review', issue: 'Performance review overdue', urgency: 'high', department: 'Engineering', daysOverdue: 15 },
-    { id: 2, name: 'Mike Chen', type: 'review', issue: 'Quarterly check-in needed', urgency: 'medium', department: 'Sales', daysOverdue: 5 },
-    { id: 3, name: 'Alex Rodriguez', type: 'performance', issue: 'Below expectations for 3 months', urgency: 'high', department: 'Marketing', score: 4.2 },
-    { id: 4, name: 'Emma Davis', type: 'review', issue: 'Annual review pending', urgency: 'low', department: 'Finance', daysOverdue: 2 },
-  ],
-  upcomingReviews: [
-    { id: 1, name: 'Jessica Park', department: 'Engineering', type: 'Annual Review', dueDate: '2025-08-05', daysUntil: 7 },
-    { id: 2, name: 'Robert Kim', department: 'Sales', type: 'Quarterly Check-in', dueDate: '2025-08-08', daysUntil: 10 },
-    { id: 3, name: 'Maria González', department: 'Marketing', type: 'Performance Review', dueDate: '2025-08-12', daysUntil: 14 },
-    { id: 4, name: 'Thomas Lee', department: 'HR', type: 'Probation Review', dueDate: '2025-08-15', daysUntil: 17 },
-  ],
-  quickStats: {
-    activeEmployees: 247,
-    onLeave: 12,
-    newHires: 8,
-    pendingReviews: 23,
-    upcomingApprovals: 5,
-    performanceIssues: 7,
-    topPerformers: 45,
-  },
-  performanceTrends: {
-    thisMonth: 8.2,
-    lastMonth: 7.9,
-    percentChange: 3.8
-  }
-};
+import { AlertTriangle, Users, TrendingUp, FileText, CheckCircle, Clock, Calendar, AlertCircle, ChevronRight, Settings, MessageCircle, Star } from 'lucide-react';
 
 interface DashboardProps {
   onNavigateToProfile?: () => void;
@@ -53,9 +15,100 @@ interface DashboardProps {
   onNavigateToDirectory?: () => void;
 }
 
-export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateToPendingActions, onNavigateToChatbot, onNavigateToCalendar, onNavigateToSettings, onNavigateToDirectory }: DashboardProps) {
+// Interfaces reflecting our unified backend schema
+interface Employee {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  performanceScore: number;
+  status: string;
+}
+
+interface Task {
+  id: number;
+  title: string;
+  assignedTo: string;
+  status: string;
+  dueDate: string;
+  urgency: string;
+  type: string;
+  daysOverdue?: number;
+  score?: number;
+  department?: string;
+}
+
+interface CalendarEvent {
+  id: number;
+  title: string;
+  type: string;
+  date: string;
+  time: string;
+  attendee?: string;
+  daysUntil?: number;
+}
+
+export function Dashboard({ 
+  onNavigateToProfile, 
+  onNavigateToReport, 
+  onNavigateToPendingActions, 
+  onNavigateToChatbot, 
+  onNavigateToCalendar, 
+  onNavigateToSettings, 
+  onNavigateToDirectory 
+}: DashboardProps) {
+
+  // Component States mapped to dynamic database responses
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function fetchDashboardMetrics() {
+      try {
+        const [empRes, taskRes, eventRes] = await Promise.all([
+          fetch('http://localhost:5000/api/employees'),
+          fetch('http://localhost:5000/api/tasks'),
+          fetch('http://localhost:5000/api/events')
+        ]);
+
+        const empData = await empRes.json();
+        const taskData = await taskRes.json();
+        const eventData = await eventRes.json();
+
+        setEmployees(empData);
+        setTasks(taskData);
+        setEvents(eventData);
+      } catch (err) {
+        console.error('Error hydrating dashboard datasets:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDashboardMetrics();
+  }, []);
+
+  // Compute live calculations from state values
+  const totalEmployees = employees.length;
+  const onLeaveCount = employees.filter(e => e.status === 'On Leave').length;
+  const performanceIssuesCount = employees.filter(e => e.performanceScore < 6.0).length;
+  const topPerformersCount = employees.filter(e => e.performanceScore >= 8.5).length;
+
+  const averagePerformance = totalEmployees > 0 
+    ? parseFloat((employees.reduce((acc, e) => acc + e.performanceScore, 0) / totalEmployees).toFixed(1))
+    : 0;
+
+  // Generate a live Department breakdown object dynamically
+  const departmentBreakdown = employees.reduce((acc: Record<string, number>, emp) => {
+    const dept = emp.department.toLowerCase();
+    acc[dept] = (acc[dept] || 0) + 1;
+    return acc;
+  }, {});
+
   const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
+    switch (urgency.toLowerCase()) {
       case 'high': return 'destructive';
       case 'medium': return 'default';
       case 'low': return 'secondary';
@@ -64,26 +117,28 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
   };
 
   const getActionIcon = (type: string) => {
-    switch (type) {
+    switch (type.toLowerCase()) {
       case 'review': return <Clock className="h-4 w-4" />;
       case 'performance': return <AlertTriangle className="h-4 w-4" />;
       default: return <AlertTriangle className="h-4 w-4" />;
     }
   };
 
-  const getDaysUntilColor = (days: number) => {
-    if (days <= 7) return 'text-destructive';
-    if (days <= 14) return 'text-yellow-600';
-    return 'text-muted-foreground';
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] text-muted-foreground animate-pulse">
+        Hydrating operational framework indexes...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1>Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Overview of your team's performance and pending actions
+          Overview of your team's performance and pending actions bound to SQLite service
         </p>
       </div>
 
@@ -91,20 +146,14 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Total Employees</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="text-2xl">{dashboardData.totalEmployees}</div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center text-xs text-green-600">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +{dashboardData.quickStats.newHires} this month
-                </div>
-              </div>
+              <div className="text-2xl font-bold">{totalEmployees}</div>
               <div className="text-xs text-muted-foreground">
-                {dashboardData.quickStats.onLeave} on leave
+                {onLeaveCount} currently on leave
               </div>
             </div>
           </CardContent>
@@ -113,19 +162,13 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
 
         <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Performance Score</CardTitle>
+            <CardTitle className="text-sm font-medium">Performance Score</CardTitle>
             <Star className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="text-2xl">{dashboardData.averagePerformance}/10</div>
-              <Progress value={dashboardData.averagePerformance * 10} className="h-2" />
-              <div className="flex items-center gap-2">
-                <div className="flex items-center text-xs text-green-600">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +{dashboardData.performanceTrends.percentChange}% from last month
-                </div>
-              </div>
+              <div className="text-2xl font-bold">{averagePerformance}/10</div>
+              <Progress value={averagePerformance * 10} className="h-2" />
             </div>
           </CardContent>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-green-600" />
@@ -133,19 +176,14 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
 
         <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Action Items</CardTitle>
+            <CardTitle className="text-sm font-medium">Action Items</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="text-2xl">{dashboardData.actionAlerts.length + dashboardData.quickStats.upcomingApprovals}</div>
-              <div className="space-y-1">
-                <div className="text-xs text-destructive">
-                  {dashboardData.actionAlerts.filter(a => a.urgency === 'high').length} high priority
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {dashboardData.quickStats.upcomingApprovals} pending approvals
-                </div>
+              <div className="text-2xl font-bold">{tasks.length}</div>
+              <div className="text-xs text-destructive font-medium">
+                {tasks.filter(t => t.urgency === 'high').length} high priority task streams
               </div>
             </div>
           </CardContent>
@@ -154,19 +192,14 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
 
         <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Upcoming Reviews</CardTitle>
+            <CardTitle className="text-sm font-medium">Upcoming Reviews</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="text-2xl">{dashboardData.upcomingReviews.length}</div>
-              <div className="space-y-1">
-                <div className="text-xs text-yellow-600">
-                  {dashboardData.upcomingReviews.filter(r => r.daysUntil <= 7).length} due this week
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Next: {dashboardData.upcomingReviews[0].name}
-                </div>
+              <div className="text-2xl font-bold">{events.length}</div>
+              <div className="text-xs text-muted-foreground">
+                Next event: {events[0]?.title || 'None Scheduled'}
               </div>
             </div>
           </CardContent>
@@ -175,7 +208,7 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Performance Issues - Enhanced */}
+        {/* Performance Issues / Dynamic Tasks Area */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -185,55 +218,37 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
                   Performance Issues & Action Required
                 </CardTitle>
                 <CardDescription>
-                  Employees requiring immediate attention or review
+                  Active system workflows requiring manager attention
                 </CardDescription>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={onNavigateToPendingActions}
-              >
-                View All
-                <ChevronRight className="h-4 w-4 ml-1" />
+              <Button variant="outline" size="sm" onClick={onNavigateToPendingActions}>
+                View All <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {dashboardData.actionAlerts.map((alert) => (
-              <div key={alert.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+            {tasks.slice(0, 4).map((task) => (
+              <div key={task.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0">
-                    {getActionIcon(alert.type)}
-                  </div>
+                  <div className="flex-shrink-0">{getActionIcon(task.type)}</div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="truncate">{alert.name}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {alert.department}
-                      </Badge>
+                      <p className="font-medium truncate">{task.assignedTo}</p>
+                      {task.department && (
+                        <Badge variant="outline" className="text-xs">{task.department}</Badge>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground">{alert.issue}</p>
-                    {alert.daysOverdue && (
-                      <p className="text-xs text-destructive">
-                        {alert.daysOverdue} days overdue
-                      </p>
-                    )}
-                    {alert.score && (
-                      <p className="text-xs text-muted-foreground">
-                        Performance: {alert.score}/10
-                      </p>
+                    <p className="text-sm text-muted-foreground">{task.title}</p>
+                    {task.daysOverdue && (
+                      <p className="text-xs text-destructive">{task.daysOverdue} days overdue</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={getUrgencyColor(alert.urgency) as any} className="text-xs">
-                    {alert.urgency}
+                  <Badge variant={getUrgencyColor(task.urgency) as any} className="text-xs">
+                    {task.urgency}
                   </Badge>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={onNavigateToProfile}
-                  >
+                  <Button size="sm" variant="outline" onClick={onNavigateToProfile}>
                     Review
                   </Button>
                 </div>
@@ -242,241 +257,88 @@ export function Dashboard({ onNavigateToProfile, onNavigateToReport, onNavigateT
           </CardContent>
         </Card>
 
-        {/* Upcoming Reviews */}
+        {/* Upcoming Events Module */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               Upcoming Reviews
             </CardTitle>
-            <CardDescription>
-              Scheduled performance evaluations
-            </CardDescription>
+            <CardDescription>Scheduled performance evaluations</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {dashboardData.upcomingReviews.map((review) => (
-              <div key={review.id} className="space-y-2 p-3 border rounded-lg">
+            {events.slice(0, 4).map((event) => (
+              <div key={event.id} className="space-y-2 p-3 border rounded-lg">
                 <div className="flex items-center justify-between">
-                  <p className="truncate">{review.name}</p>
-                  <Badge variant="outline" className="text-xs">
-                    {review.department}
-                  </Badge>
+                  <p className="font-medium truncate">{event.attendee || 'All Hands'}</p>
+                  <Badge variant="outline" className="text-xs">{event.type}</Badge>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{review.type}</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">{review.dueDate}</p>
-                    <p className={`text-xs ${getDaysUntilColor(review.daysUntil)}`}>
-                      {review.daysUntil} days
-                    </p>
+                  <p className="text-sm text-muted-foreground">{event.title}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <p>{event.date} @ {event.time}</p>
+                    {event.daysUntil !== undefined && (
+                      <p className={event.daysUntil <= 3 ? "text-destructive font-semibold" : ""}>
+                        {event.daysUntil} days
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
-            <Button className="w-full" variant="outline" size="sm">
-              View All Reviews
-            </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions - Enhanced */}
+      {/* Quick Operations Strip */}
       <Card>
         <CardHeader>
           <CardTitle>Quick Actions & Critical Operations</CardTitle>
-          <CardDescription>
-            Frequently used tools and emergency actions
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            <Button 
-              className="justify-start h-auto p-4" 
-              variant="ghost"
-              onClick={onNavigateToReport}
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-blue-600" />
-                <div className="text-left">
-                  <div>Performance Reports</div>
-                  <div className="text-xs text-muted-foreground">Generate & review reports</div>
-                </div>
+            <Button className="justify-start h-auto p-4" variant="ghost" onClick={onNavigateToReport}>
+              <FileText className="h-5 w-5 mr-3 text-blue-600" />
+              <div className="text-left">
+                <div className="font-medium">Performance Reports</div>
+                <div className="text-xs text-muted-foreground">Generate metrics pipelines</div>
               </div>
             </Button>
-            
-            <Button 
-              className="justify-start h-auto p-4" 
-              variant="ghost"
-              onClick={onNavigateToPendingActions}
-            >
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <div className="text-left">
-                  <div>Pending Approvals</div>
-                  <div className="text-xs text-muted-foreground">{dashboardData.quickStats.upcomingApprovals} items waiting</div>
-                </div>
+            <Button className="justify-start h-auto p-4" variant="ghost" onClick={onNavigateToPendingActions}>
+              <CheckCircle className="h-5 w-5 mr-3 text-green-600" />
+              <div className="text-left">
+                <div className="font-medium">Pending Approvals</div>
+                <div className="text-xs text-muted-foreground">{tasks.length} workflows awaiting verification</div>
               </div>
             </Button>
-
-            <Button 
-              className="justify-start h-auto p-4" 
-              variant="ghost"
-              onClick={onNavigateToDirectory}
-            >
-              <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-purple-600" />
-                <div className="text-left">
-                  <div>Employee Directory</div>
-                  <div className="text-xs text-muted-foreground">{dashboardData.totalEmployees} active employees</div>
-                </div>
-              </div>
-            </Button>
-
-            <Button className="justify-start h-auto p-4" variant="ghost">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-5 w-5 text-orange-600" />
-                <div className="text-left">
-                  <div>Analytics Dashboard</div>
-                  <div className="text-xs text-muted-foreground">Performance insights</div>
-                </div>
-              </div>
-            </Button>
-
-            <Button className="justify-start h-auto p-4" variant="ghost">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-indigo-600" />
-                <div className="text-left">
-                  <div>Time & Attendance</div>
-                  <div className="text-xs text-muted-foreground">Track work hours</div>
-                </div>
-              </div>
-            </Button>
-
-            <Button 
-              className="justify-start h-auto p-4" 
-              variant="ghost"
-              onClick={onNavigateToChatbot}
-            >
-              <div className="flex items-center gap-3">
-                <MessageCircle className="h-5 w-5 text-teal-600" />
-                <div className="text-left">
-                  <div>HR Assistant</div>
-                  <div className="text-xs text-muted-foreground">Get instant help</div>
-                </div>
-              </div>
-            </Button>
-
-            <Button 
-              className="justify-start h-auto p-4" 
-              variant="ghost"
-              onClick={onNavigateToCalendar}
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-pink-600" />
-                <div className="text-left">
-                  <div>HR Calendar</div>
-                  <div className="text-xs text-muted-foreground">Schedule & events</div>
-                </div>
-              </div>
-            </Button>
-
-            <Button 
-              className="justify-start h-auto p-4" 
-              variant="ghost"
-              onClick={onNavigateToSettings}
-            >
-              <div className="flex items-center gap-3">
-                <Settings className="h-5 w-5 text-gray-600" />
-                <div className="text-left">
-                  <div>HR Settings</div>
-                  <div className="text-xs text-muted-foreground">Configure system</div>
-                </div>
+            <Button className="justify-start h-auto p-4" variant="ghost" onClick={onNavigateToDirectory}>
+              <Users className="h-5 w-5 mr-3 text-purple-600" />
+              <div className="text-left">
+                <div className="font-medium">Employee Directory</div>
+                <div className="text-xs text-muted-foreground">{totalEmployees} node entries profile directory</div>
               </div>
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Activity & Team Insights */}
+      {/* Analytics Breakdown Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
-              Latest updates across your organization
-            </CardDescription>
+            <CardTitle>Department Matrix</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="h-2 w-2 bg-green-500 rounded-full flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Jennifer Smith completed annual review</span>
-                    <span className="text-xs text-muted-foreground">2h ago</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="h-2 w-2 bg-blue-500 rounded-full flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">David Wilson started onboarding</span>
-                    <span className="text-xs text-muted-foreground">4h ago</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="h-2 w-2 bg-yellow-500 rounded-full flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">2 performance improvement plans initiated</span>
-                    <span className="text-xs text-muted-foreground">1d ago</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="h-2 w-2 bg-green-500 rounded-full flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Marketing team Q4 reviews completed</span>
-                    <span className="text-xs text-muted-foreground">2d ago</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Team Overview</CardTitle>
-            <CardDescription>
-              Department breakdown and insights
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(dashboardData.departmentBreakdown).map(([dept, count]) => (
-                <div key={dept} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 bg-muted rounded-full flex items-center justify-center">
-                      <span className="text-xs capitalize">{dept[0]}</span>
-                    </div>
-                    <span className="capitalize">{dept}</span>
-                  </div>
-                  <div className="text-sm">{count}</div>
+              {Object.entries(departmentBreakdown).map(([dept, count]) => (
+                <div key={dept} className="flex items-center justify-between border-b pb-2 last:border-none">
+                  <span className="capitalize font-medium">{dept}</span>
+                  <Badge variant="secondary">{count} structural entities</Badge>
                 </div>
               ))}
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Top Performers</span>
-                  <span className="text-green-600">{dashboardData.quickStats.topPerformers}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Need Attention</span>
-                  <span className="text-destructive">{dashboardData.quickStats.performanceIssues}</span>
-                </div>
+              <div className="pt-4 border-t flex justify-between text-sm">
+                <span className="text-green-600 font-medium">Top Performers: {topPerformersCount}</span>
+                <span className="text-destructive font-medium">Under Review: {performanceIssuesCount}</span>
               </div>
             </div>
           </CardContent>

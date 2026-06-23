@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Table } from './ui/table';
-import { Avatar } from './ui/avatar';
-import { Select } from './ui/select';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from './ui/table';
 import { 
   Users, 
   Search, 
@@ -19,7 +24,9 @@ import {
   UserPlus,
   MoreHorizontal,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  UserCheck,
+  AlertCircle
 } from 'lucide-react';
 
 // Mock employee data
@@ -157,7 +164,7 @@ const employeeData = [
   {
     id: 11,
     name: 'Jennifer Smith',
-    email: 'jennifer.smith@company.com',
+    email: 'jessifer.smith@company.com',
     role: 'Product Manager',
     department: 'Product',
     performanceScore: 8.7,
@@ -199,16 +206,21 @@ export function EmployeeDirectory({ onNavigateToProfile, onNavigateToReport }: E
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Get unique departments and statuses for filters
+  // Get unique fields for selector options
   const departments = [...new Set(employeeData.map(emp => emp.department))];
   const statuses = [...new Set(employeeData.map(emp => emp.status))];
 
-  // Filter and sort employees
+  // Reset page safely whenever criteria modifications occur
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, departmentFilter, statusFilter]);
+
+  // Handle Filtering and Sorting Operations
   const filteredEmployees = employeeData
     .filter(employee => {
       const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           employee.role.toLowerCase().includes(searchTerm.toLowerCase());
+                            employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            employee.role.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDepartment = departmentFilter === 'all' || employee.department === departmentFilter;
       const matchesStatus = statusFilter === 'all' || employee.status === statusFilter;
       
@@ -235,8 +247,15 @@ export function EmployeeDirectory({ onNavigateToProfile, onNavigateToReport }: E
       return 0;
     });
 
-  // Pagination
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  // Calculate Dynamic Statistical Summaries
+  const activeCount = filteredEmployees.filter(emp => emp.status === 'Active').length;
+  const reviewCount = filteredEmployees.filter(emp => emp.status === 'Under Review').length;
+  const avgPerformance = filteredEmployees.length > 0 
+    ? (filteredEmployees.reduce((sum, emp) => sum + emp.performanceScore, 0) / filteredEmployees.length).toFixed(1)
+    : '0.0';
+
+  // Compute Pagination Boundaries
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
 
@@ -257,77 +276,74 @@ export function EmployeeDirectory({ onNavigateToProfile, onNavigateToReport }: E
   };
 
   const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
-    if (sortDirection === 'asc') return <ArrowUp className="h-4 w-4" />;
-    if (sortDirection === 'desc') return <ArrowDown className="h-4 w-4" />;
-    return <ArrowUpDown className="h-4 w-4" />;
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+    if (sortDirection === 'asc') return <ArrowUp className="h-4 w-4 text-primary" />;
+    if (sortDirection === 'desc') return <ArrowDown className="h-4 w-4 text-primary" />;
+    return <ArrowUpDown className="h-4 w-4 opacity-50" />;
   };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'under review': return 'bg-yellow-100 text-yellow-800';
-      case 'probation': return 'bg-orange-100 text-orange-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
+      case 'under review': return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+      case 'probation': return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300';
+      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
     }
   };
 
   const getPerformanceColor = (score: number) => {
-    if (score >= 9) return 'text-green-600';
-    if (score >= 7) return 'text-yellow-600';
+    if (score >= 9) return 'text-emerald-600 font-medium';
+    if (score >= 7) return 'text-amber-600 font-medium';
     if (score >= 5) return 'text-orange-600';
-    return 'text-red-600';
+    return 'text-rose-600 font-semibold';
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6">
+      {/* Action Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1>Employee Directory</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-tight">Employee Directory</h1>
+          <p className="text-muted-foreground mt-1">
             Manage and view all employees in your organization
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="h-9">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button size="sm">
+          <Button size="sm" className="h-9">
             <UserPlus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+      {/* Control Filters panel */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg flex items-center gap-2 font-semibold">
+            <Filter className="h-5 w-5 text-muted-foreground" />
             Search & Filter
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, email, or role..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or role..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 w-full"
+              />
             </div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 md:flex gap-3">
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="px-3 py-2 border rounded-md bg-background"
+                className="h-10 px-3 border rounded-md bg-background text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="all">All Departments</option>
                 {departments.map(dept => (
@@ -337,225 +353,201 @@ export function EmployeeDirectory({ onNavigateToProfile, onNavigateToReport }: E
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border rounded-md bg-background"
+                className="h-10 px-3 border rounded-md bg-background text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="all">All Status</option>
+                <option value="all">All Statuses</option>
                 {statuses.map(status => (
                   <option key={status} value={status}>{status}</option>
                 ))}
               </select>
               <select
                 value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(parseInt(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border rounded-md bg-background"
+                onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
+                className="h-10 px-3 border rounded-md bg-background text-sm font-medium col-span-2 md:w-32 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value={10}>10 per page</option>
                 <option value={25}>25 per page</option>
                 <option value={50}>50 per page</option>
-                <option value={100}>100 per page</option>
               </select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Employee Table */}
-      <Card>
-        <CardHeader>
+      {/* Main Employee Table */}
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="border-b bg-muted/20">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
+              <CardTitle className="text-lg flex items-center gap-2 font-semibold">
+                <Users className="h-5 w-5 text-muted-foreground" />
                 Employees
               </CardTitle>
-              <CardDescription>
-                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredEmployees.length)} of {filteredEmployees.length} employees
+              <CardDescription className="mt-0.5">
+                Showing {filteredEmployees.length === 0 ? 0 : startIndex + 1}–{Math.min(startIndex + itemsPerPage, filteredEmployees.length)} of {filteredEmployees.length} profiles
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSort('name')}
-                      className="flex items-center gap-2 hover:bg-muted"
-                    >
-                      Employee
-                      {getSortIcon('name')}
-                    </Button>
-                  </th>
-                  <th className="text-left p-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSort('role')}
-                      className="flex items-center gap-2 hover:bg-muted"
-                    >
-                      Role
-                      {getSortIcon('role')}
-                    </Button>
-                  </th>
-                  <th className="text-left p-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSort('department')}
-                      className="flex items-center gap-2 hover:bg-muted"
-                    >
-                      Department
-                      {getSortIcon('department')}
-                    </Button>
-                  </th>
-                  <th className="text-left p-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSort('performanceScore')}
-                      className="flex items-center gap-2 hover:bg-muted"
-                    >
-                      Performance
-                      {getSortIcon('performanceScore')}
-                    </Button>
-                  </th>
-                  <th className="text-left p-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSort('status')}
-                      className="flex items-center gap-2 hover:bg-muted"
-                    >
-                      Status
-                      {getSortIcon('status')}
-                    </Button>
-                  </th>
-                  <th className="text-left p-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSort('joinDate')}
-                      className="flex items-center gap-2 hover:bg-muted"
-                    >
-                      Join Date
-                      {getSortIcon('joinDate')}
-                    </Button>
-                  </th>
-                  <th className="text-right p-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedEmployees.map((employee) => (
-                  <tr key={employee.id} className="border-b hover:bg-muted/50 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead className="p-4 font-semibold">
+                    <button onClick={() => handleSort('name')} className="flex items-center gap-2 hover:text-foreground transition-colors">
+                      Employee {getSortIcon('name')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="p-4 font-semibold">
+                    <button onClick={() => handleSort('role')} className="flex items-center gap-2 hover:text-foreground transition-colors">
+                      Role {getSortIcon('role')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="p-4 font-semibold">
+                    <button onClick={() => handleSort('department')} className="flex items-center gap-2 hover:text-foreground transition-colors">
+                      Department {getSortIcon('department')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="p-4 font-semibold">
+                    <button onClick={() => handleSort('performanceScore')} className="flex items-center gap-2 hover:text-foreground transition-colors">
+                      Performance {getSortIcon('performanceScore')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="p-4 font-semibold">
+                    <button onClick={() => handleSort('status')} className="flex items-center gap-2 hover:text-foreground transition-colors">
+                      Status {getSortIcon('status')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="p-4 font-semibold">
+                    <button onClick={() => handleSort('joinDate')} className="flex items-center gap-2 hover:text-foreground transition-colors">
+                      Join Date {getSortIcon('joinDate')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="p-4 text-right font-semibold">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedEmployees.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                      No matching records found matching your criteria.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedEmployees.map((employee) => (
+                    <TableRow key={employee.id} className="hover:bg-muted/40 transition-colors">
+                      <TableCell className="p-4">
+                        <div className="flex items-center gap-3">
                           <img
                             src={employee.avatar}
                             alt={employee.name}
-                            className="h-10 w-10 rounded-full object-cover"
+                            className="h-10 w-10 rounded-full object-cover border border-muted"
                           />
+                          <div>
+                            <div className="font-medium text-sm text-foreground">{employee.name}</div>
+                            <div className="text-xs text-muted-foreground">{employee.email}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-sm">{employee.name}</div>
-                          <div className="text-xs text-muted-foreground">{employee.email}</div>
+                      </TableCell>
+                      <TableCell className="p-4">
+                        <div className="text-sm text-foreground">{employee.role}</div>
+                        <div className="text-xs text-muted-foreground">{employee.location}</div>
+                      </TableCell>
+                      <TableCell className="p-4">
+                        <Badge variant="outline" className="text-xs font-normal px-2.5 py-0.5 rounded-md">
+                          {employee.department}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="p-4">
+                        <span className={`text-sm ${getPerformanceColor(employee.performanceScore)}`}>
+                          {employee.performanceScore} / 10
+                        </span>
+                      </TableCell>
+                      <TableCell className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium tracking-wide ${getStatusColor(employee.status)}`}>
+                          {employee.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="p-4 text-sm text-muted-foreground">
+                        {new Date(employee.joinDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </TableCell>
+                      <TableCell className="p-4">
+                        <div className="flex items-center gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onNavigateToProfile?.(employee.id)}
+                            className="h-8 text-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Profile
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onNavigateToReport?.(employee.id)}
+                            className="h-8 text-xs"
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1" />
+                            Report
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="text-sm">{employee.role}</div>
-                      <div className="text-xs text-muted-foreground">{employee.location}</div>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="text-xs">
-                        {employee.department}
-                      </Badge>
-                    </td>
-                    <td className="p-4">
-                      <div className={`text-sm ${getPerformanceColor(employee.performanceScore)}`}>
-                        {employee.performanceScore}/10
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${getStatusColor(employee.status)}`}>
-                        {employee.status}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="text-sm">{new Date(employee.joinDate).toLocaleDateString()}</div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onNavigateToProfile?.(employee.id)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Profile
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onNavigateToReport?.(employee.id)}
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          Report
-                        </Button>
-                        <Button size="sm" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
 
-          {/* Pagination */}
+          {/* Table Control Pagination Footer */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+            <div className="flex flex-col sm:flex-row items-center justify-between p-4 gap-4 border-t bg-muted/10">
+              <div className="text-sm text-muted-foreground order-2 sm:order-1">
+                Page <span className="font-medium text-foreground">{currentPage}</span> of <span className="font-medium text-foreground">{totalPages}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 order-1 sm:order-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
+                  className="h-8 px-2.5 text-xs gap-1"
                 >
                   <ChevronLeft className="h-4 w-4" />
                   Previous
                 </Button>
-                {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                  const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
-                  if (pageNum > totalPages) return null;
-                  
-                  return (
-                    <Button
-                      key={pageNum}
-                      variant={currentPage === pageNum ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentPage(pageNum)}
-                    >
-                      {pageNum}
-                    </Button>
-                  );
+                {[...Array(totalPages)].map((_, i) => {
+                  const pageNum = i + 1;
+                  // Show current page, first, last, and immediate surrounding pages
+                  if (pageNum === 1 || pageNum === totalPages || Math.abs(currentPage - pageNum) <= 1) {
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="h-8 w-8 text-xs p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  }
+                  if (pageNum === 2 || pageNum === totalPages - 1) {
+                    return <span key={pageNum} className="text-muted-foreground px-1 text-xs">...</span>;
+                  }
+                  return null;
                 })}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
+                  className="h-8 px-2.5 text-xs gap-1"
                 >
                   Next
                   <ChevronRight className="h-4 w-4" />
@@ -566,60 +558,56 @@ export function EmployeeDirectory({ onNavigateToProfile, onNavigateToReport }: E
         </CardContent>
       </Card>
 
-      {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
+      {/* Summary Stat Grid Panel */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="shadow-sm">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Employees</p>
-                <p className="text-2xl">{employeeData.length}</p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Records Viewable</p>
+                <p className="text-3xl font-bold tracking-tight">{filteredEmployees.length}</p>
               </div>
-              <Users className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl text-green-600">
-                  {employeeData.filter(emp => emp.status === 'Active').length}
-                </p>
-              </div>
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                <div className="h-3 w-3 bg-green-600 rounded-full" />
+              <div className="h-12 w-12 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                <Users className="h-6 w-6" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
+        <Card className="shadow-sm">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Under Review</p>
-                <p className="text-2xl text-yellow-600">
-                  {employeeData.filter(emp => emp.status === 'Under Review').length}
-                </p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Active Members</p>
+                <p className="text-3xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">{activeCount}</p>
               </div>
-              <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
-                <div className="h-3 w-3 bg-yellow-600 rounded-full" />
+              <div className="h-12 w-12 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
+                <UserCheck className="h-6 w-6" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
+        <Card className="shadow-sm">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Performance</p>
-                <p className="text-2xl">
-                  {(employeeData.reduce((sum, emp) => sum + emp.performanceScore, 0) / employeeData.length).toFixed(1)}
-                </p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Under Review</p>
+                <p className="text-3xl font-bold tracking-tight text-amber-600 dark:text-amber-400">{reviewCount}</p>
               </div>
-              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <div className="h-3 w-3 bg-purple-600 rounded-full" />
+              <div className="h-12 w-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Avg Performance</p>
+                <p className="text-3xl font-bold tracking-tight">{avgPerformance}</p>
+              </div>
+              <div className="h-12 w-12 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center">
+                <div className="h-3 w-3 bg-purple-600 dark:bg-purple-400 rounded-full animate-pulse" />
               </div>
             </div>
           </CardContent>
