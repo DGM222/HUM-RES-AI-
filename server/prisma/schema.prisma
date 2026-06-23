@@ -1,0 +1,66 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  password   String
+  role       String    // "Admin", "HR", "Employee"
+  employeeId Int?      @unique
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+}
+
+model Employee {
+  id               Int        @id @default(autoincrement())
+  name             String
+  email            String     @unique
+  role             String
+  department       String
+  performanceScore Float
+  status           String     // "Active", "Under Review", "On Leave"
+  joinDate         String
+  avatar           String
+  location         String
+  managerId        Int?
+  manager          Employee?  @relation("ManagerSubordinates", fields: [managerId], references: [id])
+  subordinates     Employee[] @relation("ManagerSubordinates")
+  user             User?
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  title       String
+  assignedTo  String   // Employee Name
+  status      String   // "Pending", "Completed"
+  dueDate     String
+  urgency     String   // "high", "medium", "low"
+  type        String   // "review", "performance", "approval"
+  daysOverdue Int?
+  score       Float?
+  department  String?
+}
+
+model InboxMessage {
+  id         Int      @id @default(autoincrement())
+  sender     String
+  senderRole String
+  content    String
+  time       String
+  unread     Boolean  @default(true)
+  avatar     String
+}
+
+model CalendarEvent {
+  id        Int      @id @default(autoincrement())
+  title     String
+  type      String   // "Review", "Meeting", "Holiday"
+  date      String
+  time      String
+  attendee  String?
+  daysUntil Int?
+}
